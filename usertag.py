@@ -9,6 +9,7 @@ db = mydb.Mydb()
     此处我们只对用户的性别和偏好进行规则判定。
 """
 
+# 利用规则对用户进行分析
 def usertag():
     # 载入广告信息
     ad_info = db.getAdInfo('all')

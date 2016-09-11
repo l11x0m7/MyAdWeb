@@ -31,6 +31,7 @@ def index():
     print '------------->', uid
     print uids
 
+    # 如果是新登录的用户,则分配新的cookie,给出默认广告
     if uid == None or (unicode(uid[4:]),) not in uids:
         if uid == None:
             uid = random.randint(1, 1e10)
@@ -59,6 +60,7 @@ def index():
         response.set_cookie('uid', uid, expires=_EXPIRE_TIME)
         return response
 
+    # 如果是老用户,则根据历史数据和用户的行为属性,给出用户的广告位
     else:
         user_behavior = db.getUserBehavior(uid)
         user_tag = user_behavior[0][0]
@@ -96,7 +98,7 @@ def index():
             ad_post = ad_post) + addition)
         return response
 
-
+# 点击跳转处理
 @app.route('/click/<img_id>')
 def click(img_id):
     from flask import redirect

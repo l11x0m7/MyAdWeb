@@ -2,6 +2,7 @@
 # coding=utf-8
 
 import mydb
+import random
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -14,6 +15,7 @@ class CTR:
     def __init__(self):
         self.LR = LogisticRegression()
 
+    # 载入广告信息
     def loadAdInfo(self):
         name = ['click', 'ad_id', 'advertiser_id', 'price', 'ad_tag', 'user_tag', 'user_sex']
         ad_info = db.getAdInfo('all')
@@ -26,6 +28,7 @@ class CTR:
         # pd_ad_info = pd_ad_info.drop(['ad_id'], axis=1)
         return pd_ad_info
 
+    # 载入用户的标签和性别信息
     def loadUserTag(self):
         user_tag = db.getUserBehavior('all')
         dict_user_tag = dict()
@@ -33,6 +36,7 @@ class CTR:
             dict_user_tag[info[0]] = (info[1], info[2])
         return dict_user_tag
 
+    # 载入点击信息
     def loadCTRInfo(self):
         dict_user_tag = self.loadUserTag()
         name = ['click', 'ad_id', 'advertiser_id', 'price', 'ad_tag', 'user_tag', 'user_sex']
@@ -53,6 +57,7 @@ class CTR:
         # print pd_ctr_info
         return pd_ctr_info
 
+    # 特征工程,主要是把一个离散特征分解成多个不同的特征
     def featureEngineer(self, f):
         # 目前保留特征有:价格, 广告标签, 用户标签, 用户性别
         price = pd.get_dummies(f["price"])
@@ -75,12 +80,14 @@ class CTR:
         # print f
         return f
 
+    # 模型训练
     def fit_model(self, f):
         f = self.featureEngineer(f)
         Y = f["click"]
         X = f.drop(['click'], axis=1)
         self.LR.fit(X, Y)
 
+    # 预测函数, 对所有商品进行预测,给出三个概率:-1(未出现),0(出现但是没点击),1(点击过)
     def predict(self, f, train_set):
         f_size = len(f)
         # print f
@@ -91,6 +98,7 @@ class CTR:
         prob = self.LR.predict_proba(f)
         return prob
 
+    # 总的函数,对ctr进行计算
     def userBehaviorCTR(self):
         pd_ad_info = self.loadAdInfo()
         pd_ctr_info = self.loadCTRInfo()
@@ -101,6 +109,7 @@ class CTR:
         name = ['click', 'ad_id', 'advertiser_id', 'price', 'ad_tag', 'user_tag', 'user_sex']
 
         ad_list = pd_ad_info["ad_id"].tolist()
+        id_to_tag = dict(zip(pd_ad_info["ad_id"].tolist(), pd_ad_info["ad_tag"].tolist()))
         for user_tag, user_sex in user_behaviors:
             ad_feature = list()
             for ad_id in pd_ad_info["ad_id"]:
@@ -123,15 +132,38 @@ class CTR:
             post_ad = list()
             # print prob_ind
             # print prob
-            for i in range(1, 11):
-                if i<=5:
-                    pre_ad.append(ad_list[prob_ind[-i]])
-                else:
-                    post_ad.append(ad_list[prob_ind[-i]])
+            if user_tag == 'Unknown':
+                for i in range(1, 11):
+                    ad_id = ad_list[prob_ind[-i]]
+                    if i<=5:
+                        pre_ad.append(ad_id)
+                    else:
+                        post_ad.append(ad_id)
+            else:
+                i = 1
+                # 选出第一排广告(只给出用户标签的商品排行)和第二排广告(包括前三个非用户标签的商品排行和两个随机的商品)
+                while i<=len(ad_list):
+                    ad_id = ad_list[prob_ind[-i]]
+                    ad_tag = id_to_tag[ad_id]
+                    if len(pre_ad)<5 and user_tag == ad_tag:
+                        pre_ad.append(ad_id)
+                    elif user_tag != ad_tag and len(post_ad)<3:
+                        post_ad.append(ad_id)
+                    if len(pre_ad)==5 and len(post_ad)==3:
+                        break
+                    i+=1
+                for j in range(2):
+                    ad_id = ad_list[random.randint(0, len(ad_list)-i-1)]
+                    while ad_id in post_ad:
+                        ad_id = ad_list[random.randint(0, len(ad_list)-i-1)]
+                    post_ad.append(ad_id)
+
+
             # print pre_ad, post_ad
             user_behavior = (user_tag, user_sex)
             pre_ad = ','.join(pre_ad)
             post_ad = ','.join(post_ad)
+            # 更新rank数据库
             db.updateRank(user_behavior, pre_ad, post_ad)
 
 

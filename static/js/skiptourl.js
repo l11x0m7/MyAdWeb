@@ -9,7 +9,7 @@ function toflask(){
 		//alert($(this).children("src").attr("id"));
 		img_id = $(this).children('img').attr("id")
 		url = "/click/" + img_id
-		phase = 'OK!'
+		phase = '谢谢您的点击!'
 		alert(phase)
 		window.location.href = url
 	})
